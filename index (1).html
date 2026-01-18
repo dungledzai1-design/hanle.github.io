@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nguyen Anh Hao</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --glass: rgba(255,255,255,.12);
+      --border: rgba(255,255,255,.25);
+      --accent: #ff7aa2;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto;
+      color:#fff;
+      overflow:hidden;
+      background:#000;
+    }
+
+    /* Background */
+    .bg{
+      position:fixed; inset:0;
+      background-image:url('https://i.imgur.com/xFKmfj1.gif');
+      background-size:120% auto;
+      background-position:center;
+      background-repeat:no-repeat;
+      filter:saturate(1.1) contrast(1.05);
+      transform:scale(1.05);
+      animation:bg-pan 30s linear infinite alternate;
+    }
+    @keyframes bg-pan{from{background-position:45% 50%}to{background-position:55% 50%}}
+    .bg::after{
+      content:''; position:absolute; inset:0;
+      background:radial-gradient(1200px 600px at 50% 60%, rgba(0,0,0,.15), rgba(0,0,0,.55));
+    }
+
+    canvas#sakura{position:fixed; inset:0; pointer-events:none}
+
+    .wrap{position:relative; z-index:2; height:100%; display:grid; place-items:center}
+    .card{
+      width:min(420px,92vw);
+      background:linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.06));
+      backdrop-filter:blur(14px);
+      border:1px solid var(--border);
+      border-radius:24px;
+      padding:24px;
+      box-shadow:0 30px 80px rgba(0,0,0,.45);
+    }
+
+    .profile{display:flex; flex-direction:column; gap:16px; align-items:center; text-align:center}
+
+    /* Avatar + Galaxy */
+    .avatar-wrap{
+      position:relative;
+      width:150px;
+      height:150px;
+      display:grid;
+      place-items:center;
+    }
+    .galaxy-ring{
+      position:absolute;
+      width:150px;
+      height:150px;
+      border-radius:50%;
+      background:conic-gradient(#ff7aa2,#7afcff,#a97aff,#ff7aa2);
+      filter:blur(8px);
+      opacity:.9;
+      animation:spin 6s linear infinite;
+    }
+    @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+
+    .avatar{
+      width:120px; height:120px; border-radius:50%;
+      background:url('https://i.imgur.com/JkoBmri.jpeg') center/cover no-repeat;
+      border:3px solid rgba(255,255,255,.7);
+      z-index:2;
+      box-shadow:0 10px 30px rgba(0,0,0,.4)
+    }
+
+    .name h1{margin:0; font-size:30px}
+    .name p{margin:0; opacity:.85}
+
+    .actions{margin-top:22px; display:grid; gap:14px}
+    .btn{
+      display:flex; justify-content:center; align-items:center;
+      padding:14px; border-radius:14px;
+      text-decoration:none; color:#fff;
+      background:rgba(0,0,0,.25);
+      border:1px solid var(--border);
+      transition:.25s;
+    }
+    .btn:hover{transform:translateY(-2px); box-shadow:0 10px 30px rgba(0,0,0,.4)}
+
+    footer{
+      position:fixed; left:50%; bottom:14px;
+      transform:translateX(-50%);
+      font-size:14px; opacity:.9; z-index:3
+    }
+
+    /* Click ripple */
+    .ripple{
+      position:fixed;
+      width:20px; height:20px;
+      border-radius:50%;
+      pointer-events:none;
+      background:radial-gradient(circle, rgba(255,255,255,.9), rgba(255,255,255,0));
+      transform:translate(-50%,-50%);
+      animation:ripple .6s ease-out forwards;
+      z-index:9999;
+    }
+    @keyframes ripple{from{opacity:1; transform:translate(-50%,-50%) scale(0)}to{opacity:0; transform:translate(-50%,-50%) scale(8)}}
+  </style>
+</head>
+<body>
+  <div class="bg"></div>
+  <canvas id="sakura"></canvas>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="profile">
+        <div class="avatar-wrap">
+          <div class="galaxy-ring"></div>
+          <div class="avatar"></div>
+        </div>
+        <div class="name">
+          <h1>Nguyen Anh Hao</h1>
+          <p>Profile Make By Nguyen Anh Hao</p>
+        </div>
+      </div>
+
+      <div class="actions">
+        <a class="btn" href="https://www.facebook.com/profile.php?id=61585018264563&locale=vi_VN" target="_blank">Contact Facebook Me</a>
+        <a class="btn" href="https://t.me/NguyenAnhHao07" target="_blank">Contact Telegram Me</a>
+        <a class="btn" href="https://www.tiktok.com/@nguyen.hao.dichvu" target="_blank">Contact TikTok Me</a>
+        <a class="btn" href="https://zalo.me/0919088209" target="_blank">Contact Zalo Me</a>
+      </div>
+    </div>
+  </div>
+
+  <footer id="clock"></footer>
+
+  <script>
+    /* Clock */
+    const clockEl=document.getElementById('clock');
+    setInterval(()=>{
+      const d=new Date();
+      const p=n=>String(n).padStart(2,'0');
+      clockEl.textContent=`${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} — ${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()}`;
+    },1000);
+
+    /* Click effect */
+    document.addEventListener('click',e=>{
+      const r=document.createElement('div');
+      r.className='ripple';
+      r.style.left=e.clientX+'px';
+      r.style.top=e.clientY+'px';
+      document.body.appendChild(r);
+      setTimeout(()=>r.remove(),600);
+    });
+
+    /* Sakura */
+    const c=document.getElementById('sakura'),ctx=c.getContext('2d');
+    let W,H,petals=[]; const MAX=80;
+    function resize(){W=c.width=innerWidth;H=c.height=innerHeight}
+    addEventListener('resize',resize);resize();
+    const r=(a,b)=>Math.random()*(b-a)+a;
+    for(let i=0;i<MAX;i++)petals.push({x:r(0,W),y:r(-H,0),s:r(.4,1),r:r(1.5,3.5),a:r(0,Math.PI*2)});
+    (function draw(){
+      ctx.clearRect(0,0,W,H);
+      ctx.fillStyle='rgba(255,190,210,.9)';
+      petals.forEach(p=>{
+        p.y+=p.s; p.x+=Math.sin(p.a)*.5; p.a+=.01;
+        if(p.y>H)p.y=-10;
+        ctx.beginPath(); ctx.ellipse(p.x,p.y,p.r*1.2,p.r,p.a,0,Math.PI*2); ctx.fill();
+      });
+      requestAnimationFrame(draw);
+    })();
+  </script>
+</body>
+</html>
