@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zalo IMEI & Cookie Extractor</title>
+    <style>
+        /* ========== FONTS & RESET ========== */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0c14;
+            color: #e2e8f0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ========== AURORA BACKGROUND (nền mờ + hạt xanh lá) ========== */
+        .aurora-container {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .aurora-bg {
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(ellipse at 30% 20%, rgba(16, 185, 129, 0.12) 0%, transparent 55%),
+                        radial-gradient(ellipse at 70% 60%, rgba(16, 185, 129, 0.08) 0%, transparent 55%),
+                        radial-gradient(ellipse at 50% 80%, rgba(16, 185, 129, 0.15) 0%, transparent 50%),
+                        radial-gradient(ellipse at 20% 70%, rgba(16, 185, 129, 0.06) 0%, transparent 50%);
+            filter: blur(60px);
+            animation: auroraMove 20s ease-in-out infinite alternate;
+        }
+        @keyframes auroraMove {
+            0% { transform: translate(0%, 0%) rotate(0deg); }
+            100% { transform: translate(5%, 3%) rotate(5deg); }
+        }
+        .particles {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+        }
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(16, 185, 129, 0.4);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.3),
+                        0 0 60px rgba(16, 185, 129, 0.1);
+            animation: floatParticle linear infinite;
+            pointer-events: none;
+        }
+        @keyframes floatParticle {
+            0% { transform: translateY(100vh) scale(0); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-100vh) scale(1.5); opacity: 0; }
+        }
+
+        /* ========== LAYOUT ========== */
+        .app-container {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ========== HEADER / NAVBAR ========== */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            background: rgba(10, 12, 20, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .navbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .logo-icon {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 18px; color: #fff;
+        }
+        .navbar-title {
+            font-size: 16px; font-weight: 600;
+            color: #e2e8f0;
+        }
+        /* 3 gạch menu góc phải */
+        .hamburger {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            transition: background 0.2s;
+            z-index: 200;
+            background: none;
+            border: none;
+        }
+        .hamburger:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        .hamburger span {
+            display: block;
+            width: 24px; height: 2px;
+            background: #e2e8f0;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+        .hamburger.active span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+        .hamburger.active span:nth-child(2) {
+            opacity: 0;
+        }
+        .hamburger.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px);
+        }
+
+        /* ========== SIDEBAR MENU ========== */
+        .sidebar {
+            position: fixed;
+            top: 0; right: -340px;
+            width: 320px; height: 100%;
+            background: rgba(15, 17, 25, 0.95);
+            backdrop-filter: blur(30px);
+            border-left: 1px solid rgba(255,255,255,0.06);
+            z-index: 150;
+            transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 80px 24px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .sidebar.open {
+            right: 0;
+        }
+        .sidebar-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 140;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.35s ease;
+        }
+        .sidebar-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .sidebar-section {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 16px;
+        }
+        .sidebar-section h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: rgba(255,255,255,0.4);
+            margin-bottom: 12px;
+        }
+        .sidebar-section p, .sidebar-section .info-row {
+            font-size: 13px;
+            color: rgba(255,255,255,0.7);
+            line-height: 1.6;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        .info-label { color: rgba(255,255,255,0.4); }
+        .info-value { color: #10b981; font-weight: 500; }
+
+        /* ========== MAIN CONTENT ========== */
+        .main-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        /* ========== LOGIN PAGE ========== */
+        .login-card {
+            width: 100%;
+            max-width: 400px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 20px;
+            padding: 32px 28px;
+            backdrop-filter: blur(10px);
+            text-align: center;
+        }
+        .login-card .icon-wrapper {
+            margin: 0 auto 16px;
+            width: 56px; height: 56px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+        }
+        .login-card .brace-left, .login-card .brace-right {
+            position: absolute;
+            font-size: 20px; font-weight: 700;
+            color: #10b981;
+            font-family: 'Courier New', monospace;
+        }
+        .brace-left { left: -8px; }
+        .brace-right { right: -8px; }
+        .login-card h1 {
+            font-size: 22px; font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .login-card .subtitle {
+            font-size: 12px;
+            color: rgba(255,255,255,0.35);
+            margin-bottom: 24px;
+        }
+        .input-group {
+            text-align: left;
+            margin-bottom: 16px;
+        }
+        .input-group label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(255,255,255,0.5);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            color: #e2e8f0;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            outline: none;
+            transition: border 0.2s;
+        }
+        .input-group input:focus {
+            border-color: rgba(16, 185, 129, 0.5);
+        }
+        .password-wrapper {
+            position: relative;
+        }
+        .password-wrapper input {
+            padding-right: 40px;
+        }
+        .password-wrapper .toggle-pw {
+            position: absolute;
+            right: 12px; top: 50%;
+            transform: translateY(-50%);
+            background: none; border: none;
+            color: rgba(255,255,255,0.3);
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.2);
+        }
+        .btn-primary:hover {
+            box-shadow: 0 6px 30px rgba(16, 185, 129, 0.35);
+            transform: translateY(-1px);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .hint-text {
+            font-size: 11px;
+            color: rgba(255,255,255,0.2);
+            margin-top: 12px;
+        }
+        .hint-text button {
+            background: none; border: none;
+            color: rgba(16, 185, 129, 0.6);
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        /* ========== DASHBOARD PAGE ========== */
+        .dashboard-card {
+            width: 100%;
+            max-width: 520px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 20px;
+            padding: 32px 28px;
+            backdrop-filter: blur(10px);
+            text-align: center;
+        }
+        .dashboard-card h2 {
+            font-size: 20px; font-weight: 600;
+            margin-bottom: 24px;
+        }
+
+        /* ========== STATUS INDICATORS (3 trạng thái) ========== */
+        .status-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .status-badge {
+            flex: 1;
+            min-width: 130px;
+            padding: 14px 12px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .status-badge.active {
+            border-color: #10b981;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+        }
+        .status-badge .status-dot {
+            display: inline-block;
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            margin-right: 6px;
+        }
+        .status-badge.active .status-dot {
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+        .status-badge .status-label {
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .status-badge .status-text {
+            font-size: 14px;
+            font-weight: 500;
+            margin-top: 4px;
+        }
+
+        /* ========== QR CODE AREA ========== */
+        .qr-area {
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+        }
+        .qr-container {
+            width: 200px; height: 200px;
+            background: rgba(0,0,0,0.3);
+            border: 2px dashed rgba(255,255,255,0.1);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .qr-container img {
+            width: 100%; height: 100%;
+            object-fit: contain;
+        }
+        .qr-placeholder {
+            color: rgba(255,255,255,0.2);
+            font-size: 14px;
+        }
+
+        /* ========== RESULT AREA ========== */
+        .result-area {
+            margin-top: 16px;
+            text-align: left;
+        }
+        .result-box {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 14px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #10b981;
+            white-space: pre-wrap;
+            word-break: break-all;
+            margin-bottom: 12px;
+            position: relative;
+        }
+        .result-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.03);
+            color: #e2e8f0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-sm:hover {
+            background: rgba(255,255,255,0.08);
+        }
+        .btn-sm.copy-btn {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+        .format-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+        .format-tab {
+            padding: 6px 14px;
+            font-size: 11px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: transparent;
+            color: rgba(255,255,255,0.5);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .format-tab.active {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.4);
+            color: #10b981;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- ==================== AURORA BACKGROUND ==================== -->
+    <div class="aurora-container" id="auroraContainer">
+        <div class="aurora-bg"></div>
+        <div class="particles" id="particlesContainer"></div>
+    </div>
+
+    <!-- ==================== SIDEBAR OVERLAY ==================== -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- ==================== SIDEBAR ==================== -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-section">
+            <h3>📋 Thông tin Admin</h3>
+            <p>Zalo IMEI & Cookie Extractor v2.0</p>
+            <p style="margin-top:8px;font-size:11px;color:rgba(255,255,255,0.3);">Hỗ trợ trích xuất IMEI + Cookie từ QR Login Zalo Web.</p>
+        </div>
+        <div class="sidebar-section">
+            <h3>📊 Phiên làm việc</h3>
+            <div class="info-row">
+                <span class="info-label">Trạng thái:</span>
+                <span class="info-value" id="sidebarStatus">Chưa đăng nhập</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Định dạng:</span>
+                <span class="info-value" id="sidebarFormat">Python / JS</span>
+            </div>
+        </div>
+        <div class="sidebar-section">
+            <h3>⚙️ Hướng dẫn</h3>
+            <p style="font-size:11px;">1. Nhấn <strong>Start</strong> để tạo QR.<br>2. Quét QR bằng app Zalo.<br>3. Xác nhận đăng nhập trên điện thoại.<br>4. IMEI & Cookie sẽ hiện ra.</p>
+        </div>
+    </aside>
+
+    <!-- ==================== APP CONTAINER ==================== -->
+    <div class="app-container">
+
+        <!-- NAVBAR -->
+        <nav class="navbar">
+            <div class="navbar-left">
+                <div class="logo-icon">Z</div>
+                <span class="navbar-title">Zalo Extractor</span>
+            </div>
+            <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+        </nav>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+
+            <!-- ========== LOGIN PAGE ========== -->
+            <div id="loginPage" class="login-card">
+                <div class="icon-wrapper">
+                    <span class="brace-left">{</span>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                    </svg>
+                    <span class="brace-right">}</span>
+                </div>
+                <h1>Zalo IMEI Extractor</h1>
+                <p class="subtitle">Trích xuất IMEI & Cookie qua QR Login</p>
+
+                <div class="input-group">
+                    <label>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                        Secret Key
+                    </label>
+                    <div class="password-wrapper">
+                        <input type="password" id="secretKeyInput" placeholder="Nhập secret key để truy cập..." />
+                        <button class="toggle-pw" id="togglePwBtn" type="button">👁️</button>
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="loginBtn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                    Đăng nhập
+                </button>
+                <p class="hint-text">
+                    Mặc định: <code style="background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:4px;">zalo2024</code>
+                </p>
+            </div>
+
+            <!-- ========== DASHBOARD PAGE ========== -->
+            <div id="dashboardPage" class="dashboard-card hidden">
+                <h2>📱 Zalo QR Login Extractor</h2>
+
+                <!-- 3 trạng thái -->
+                <div class="status-row">
+                    <div class="status-badge" id="statusWaiting">
+                        <span class="status-dot"></span>
+                        <div class="status-label">Bước 1</div>
+                        <div class="status-text">Chờ quét QR</div>
+                    </div>
+                    <div class="status-badge" id="statusScanned">
+                        <span class="status-dot"></span>
+                        <div class="status-label">Bước 2</div>
+                        <div class="status-text">Đã quét - Chờ duyệt</div>
+                    </div>
+                    <div class="status-badge" id="statusDone">
+                        <span class="status-dot"></span>
+                        <div class="status-label">Bước 3</div>
+                        <div class="status-text">Hoàn tất</div>
+                    </div>
+                </div>
+
+                <!-- Nút Start -->
+                <button class="btn btn-primary" id="startBtn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 7v10l8-5z"/></svg>
+                    Start - Tạo QR Code
+                </button>
+
+                <!-- QR Code -->
+                <div class="qr-area">
+                    <div class="qr-container" id="qrContainer">
+                        <span class="qr-placeholder" id="qrPlaceholder">QR sẽ hiện tại đây</span>
+                        <img id="qrImage" src="" alt="QR Code" style="display:none;" />
+                    </div>
+                </div>
+
+                <!-- Kết quả -->
+                <div class="result-area hidden" id="resultArea">
+                    <div class="format-tabs">
+                        <button class="format-tab active" data-format="python">🐍 Python Cookie</button>
+                        <button class="format-tab" data-format="js">🟨 JS Cookie</button>
+                        <button class="format-tab" data-format="imei">📱 IMEI Only</button>
+                    </div>
+                    <div class="result-box" id="resultBox"></div>
+                    <div class="result-actions">
+                        <button class="btn-sm copy-btn" id="copyBtn">📋 Sao chép</button>
+                        <button class="btn-sm" id="downloadBtn">💾 Tải file .txt</button>
+                    </div>
+                </div>
+
+                <!-- Thông báo lỗi -->
+                <p id="errorMsg" style="color:#ef4444;font-size:13px;margin-top:8px;display:none;"></p>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // ==================== CONFIG ====================
+        const SECRET_KEY = 'zalo2024'; // Mặc định
+        const API_BASE = 'https://id.zalo.me/account';
+        const CHAT_BASE = 'https://chat.zalo.me';
+
+        // ==================== STATE ====================
+        let isLoggedIn = false;
+        let currentFormat = 'python';
+        let qrCode = null;
+        let sessionCookies = {};
+        let extractedIMEI = null;
+        let extractedCookiesPython = null;
+        let extractedCookiesJS = null;
+        let userAgent = navigator.userAgent;
+        let pollingInterval = null;
+
+        // ==================== DOM ELEMENTS ====================
+        const loginPage = document.getElementById('loginPage');
+        const dashboardPage = document.getElementById('dashboardPage');
+        const secretKeyInput = document.getElementById('secretKeyInput');
+        const loginBtn = document.getElementById('loginBtn');
+        const togglePwBtn = document.getElementById('togglePwBtn');
+        const hamburgerBtn = document.getElementById('hamburgerBtn');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        const startBtn = document.getElementById('startBtn');
+        const qrContainer = document.getElementById('qrContainer');
+        const qrPlaceholder = document.getElementById('qrPlaceholder');
+        const qrImage = document.getElementById('qrImage');
+        const resultArea = document.getElementById('resultArea');
+        const resultBox = document.getElementById('resultBox');
+        const copyBtn = document.getElementById('copyBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const errorMsg = document.getElementById('errorMsg');
+        const statusWaiting = document.getElementById('statusWaiting');
+        const statusScanned = document.getElementById('statusScanned');
+        const statusDone = document.getElementById('statusDone');
+        const sidebarStatus = document.getElementById('sidebarStatus');
+        const sidebarFormat = document.getElementById('sidebarFormat');
+        const formatTabs = document.querySelectorAll('.format-tab');
+
+        // ==================== AURORA PARTICLES ====================
+        function createParticles() {
+            const container = document.getElementById('particlesContainer');
+            const count = 35;
+            for (let i = 0; i < count; i++) {
+                const particle = document.createElement('div');
+                particle.classList.add('particle');
+                const size = Math.random() * 6 + 2;
+                particle.style.width = size + 'px';
+                particle.style.height = size + 'px';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDuration = Math.random() * 15 + 10 + 's';
+                particle.style.animationDelay = Math.random() * 10 + 's';
+                particle.style.opacity = Math.random() * 0.5 + 0.1;
+                container.appendChild(particle);
+            }
+        }
+        createParticles();
+
+        // ==================== SIDEBAR TOGGLE ====================
+        function toggleSidebar() {
+            sidebar.classList.toggle('open');
+            sidebarOverlay.classList.toggle('active');
+            hamburgerBtn.classList.toggle('active');
+        }
+        hamburgerBtn.addEventListener('click', toggleSidebar);
+        sidebarOverlay.addEventListener('click', toggleSidebar);
+
+        // ==================== PASSWORD TOGGLE ====================
+        togglePwBtn.addEventListener('click', () => {
+            const input = secretKeyInput;
+            if (input.type === 'password') {
+                input.type = 'text';
+                togglePwBtn.textContent = '🙈';
+            } else {
+                input.type = 'password';
+                togglePwBtn.textContent = '👁️';
+            }
+        });
+
+        // ==================== LOGIN ====================
+        loginBtn.addEventListener('click', () => {
+            const key = secretKeyInput.value.trim();
+            if (key === SECRET_KEY || key === '') {
+                isLoggedIn = true;
+                loginPage.classList.add('hidden');
+                dashboardPage.classList.remove('hidden');
+                sidebarStatus.textContent = 'Đã đăng nhập';
+            } else {
+                alert('Secret key không đúng!');
+            }
+        });
+        // Cho phép Enter
+        secretKeyInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') loginBtn.click();
+        });
+
+        // ==================== FORMAT TABS ====================
+        formatTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                formatTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentFormat = tab.dataset.format;
+                updateResultDisplay();
+            });
+        });
+
+        // ==================== RESET STATUS ====================
+        function resetStatus() {
+            statusWaiting.classList.remove('active');
+            statusScanned.classList.remove('active');
+            statusDone.classList.remove('active');
+            statusWaiting.querySelector('.status-text').textContent = 'Chờ quét QR';
+            statusScanned.querySelector('.status-text').textContent = 'Đã quét - Chờ duyệt';
+            statusDone.querySelector('.status-text').textContent = 'Hoàn tất';
+        }
+
+        function setStatus(step) {
+            resetStatus();
+            if (step === 1) statusWaiting.classList.add('active');
+            if (step === 2) statusScanned.classList.add('active');
+            if (step === 3) statusDone.classList.add('active');
+        }
+
+        // ==================== API HELPERS ====================
+        async function apiPost(url, data) {
+            const headers = {
+                'Accept': '*/*',
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Referer': 'https://id.zalo.me/account?continue=https%3A%2F%2Fchat.zalo.me%2F',
+                'User-Agent': userAgent,
+            };
+            const body = new URLSearchParams(data).toString();
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: headers,
+                body: body,
+                credentials: 'include', // Quan trọng: gửi/nhận cookie
+            });
+            return response.json();
+        }
+
+        async function apiGet(url) {
+            const headers = {
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Referer': 'https://chat.zalo.me/',
+                'User-Agent': userAgent,
+            };
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: headers,
+                credentials: 'include',
+            });
+            return response;
+        }
+
+        // ==================== QR LOGIN FLOW ====================
+        async function getLoginVersion() {
+            const url = 'https://id.zalo.me/account?continue=https%3A%2F%2Fchat.zalo.me%2F';
+            const headers = {
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Referer': 'https://chat.zalo.me/',
+                'User-Agent': userAgent,
+            };
+            const resp = await fetch(url, { headers, credentials: 'include' });
+            const html = await resp.text();
+            const match = html.match(/https:\/\/stc-zlogin\.zdn\.vn\/main-([\d.]+)\.js/);
+            return match ? match[1] : null;
+        }
+
+        async function startQRLogin() {
+            try {
+                errorMsg.style.display = 'none';
+                setStatus(1);
+                statusWaiting.querySelector('.status-text').textContent = 'Đang khởi tạo...';
+                startBtn.disabled = true;
+                startBtn.textContent = '⏳ Đang tạo QR...';
+
+                // Bước 1: Lấy version
+                const version = await getLoginVersion();
+                if (!version) throw new Error('Không thể lấy phiên bản đăng nhập.');
+                console.log('Login version:', version);
+
+                // Bước 2: Login info
+                await apiPost(`${API_BASE}/logininfo`, { continue: 'https://zalo.me/pc', v: version });
+
+                // Bước 3: Verify client
+                await apiPost(`${API_BASE}/verify-client`, { type: 'device', continue: 'https://zalo.me/pc', v: version });
+
+                // Bước 4: Generate QR
+                const qrData = await apiPost(`${API_BASE}/authen/qr/generate`, { continue: 'https://zalo.me/pc', v: version });
+                if (qrData.error_code !== 0 || !qrData.data) {
+                    throw new Error(qrData.error_message || 'Tạo QR thất bại.');
+                }
+                qrCode = qrData.data.code;
+                const qrImageB64 = qrData.data.image.replace('data:image/png;base64,', '');
+
+                // Hiển thị QR
+                qrPlaceholder.style.display = 'none';
+                qrImage.style.display = 'block';
+                qrImage.src = 'data:image/png;base64,' + qrImageB64;
+                setStatus(1);
+                statusWaiting.querySelector('.status-text').textContent = 'Chờ quét QR';
+                startBtn.textContent = '🔄 Đang chờ quét...';
+
+                // Bước 5: Chờ quét
+                const scanResult = await waitForScan(version, qrCode);
+                setStatus(2);
+                statusScanned.querySelector('.status-text').textContent = `Đã quét bởi: ${scanResult.display_name || 'Unknown'}`;
+                startBtn.textContent = '✅ Đã quét - Chờ duyệt...';
+                sidebarStatus.textContent = 'Đã quét QR - Chờ duyệt';
+
+                // Bước 6: Chờ xác nhận
+                const confirmResult = await waitForConfirm(version, qrCode);
+                if (confirmResult.error_code === -13) {
+                    throw new Error('Đăng nhập bị từ chối trên điện thoại.');
+                }
+                if (confirmResult.error_code !== 0 && confirmResult.error_code !== undefined) {
+                    throw new Error(confirmResult.error_message || 'Xác nhận thất bại.');
+                }
+
+                // Bước 7: Check session
+                await checkSession();
+
+                // Bước 8: Lấy user info + IMEI + Cookies
+                const userInfo = await getUserInfo();
+                if (!userInfo.data || !userInfo.data.logged) {
+                    throw new Error('Phiên không hợp lệ.');
+                }
+                console.log('User info:', userInfo);
+
+                // Trích xuất IMEI + Cookies
+                await extractIMEIAndCookies();
+
+                setStatus(3);
+                statusDone.querySelector('.status-text').textContent = 'Hoàn tất - Đã lấy dữ liệu';
+                startBtn.textContent = '✅ Hoàn tất!';
+                startBtn.disabled = false;
+                sidebarStatus.textContent = 'Đã đăng nhập & trích xuất';
+                resultArea.classList.remove('hidden');
+                updateResultDisplay();
+
+            } catch (err) {
+                console.error('QR Login error:', err);
+                errorMsg.style.display = 'block';
+                errorMsg.textContent = 'Lỗi: ' + err.message;
+                setStatus(1);
+                statusWaiting.querySelector('.status-text').textContent = 'Lỗi - Thử lại';
+                startBtn.disabled = false;
+                startBtn.textContent = '🔄 Thử lại';
+                qrCode = null;
+                qrImage.style.display = 'none';
+                qrPlaceholder.style.display = 'block';
+            }
+        }
+
+        async function waitForScan(version, code, timeout = 120) {
+            const url = `${API_BASE}/authen/qr/waiting-scan`;
+            const startTime = Date.now();
+            while (Date.now() - startTime < timeout * 1000) {
+                const result = await apiPost(url, { code, continue: 'https://chat.zalo.me/', v: version });
+                if (result.error_code === 0 && result.data) {
+                    return result.data;
+                }
+                if (result.error_code !== 8) {
+                    throw new Error(result.error_message || 'Lỗi chờ quét.');
+                }
+                await sleep(1500);
+            }
+            throw new Error('Hết thời gian chờ quét QR.');
+        }
+
+        async function waitForConfirm(version, code, timeout = 120) {
+            const url = `${API_BASE}/authen/qr/waiting-confirm`;
+            const startTime = Date.now();
+            while (Date.now() - startTime < timeout * 1000) {
+                const result = await apiPost(url, {
+                    code, gToken: '', gAction: 'CONFIRM_QR',
+                    continue: 'https://chat.zalo.me/', v: version
+                });
+                if (result.error_code !== 8) {
+                    return result;
+                }
+                await sleep(1500);
+            }
+            throw new Error('Hết thời gian chờ xác nhận.');
+        }
+
+        async function checkSession() {
+            const url = 'https://id.zalo.me/account/checksession?continue=https%3A%2F%2Fchat.zalo.me%2Findex.html';
+            const headers = {
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Referer': 'https://id.zalo.me/account?continue=https%3A%2F%2Fchat.zalo.me%2F',
+                'User-Agent': userAgent,
+            };
+            await fetch(url, { headers, credentials: 'include' });
+        }
+
+        async function getUserInfo() {
+            const url = 'https://jr.chat.zalo.me/jr/userinfo';
+            const headers = {
+                'Accept': '*/*',
+                'Referer': 'https://chat.zalo.me/',
+                'User-Agent': userAgent,
+            };
+            const resp = await fetch(url, { headers, credentials: 'include' });
+            return resp.json();
+        }
+
+        // ==================== TRÍCH XUẤT IMEI & COOKIES ====================
+        async function extractIMEIAndCookies() {
+            // Tạo IMEI giả lập (theo logic Python)
+            const imeiUUID = crypto.randomUUID();
+            const imeiHash = await md5(userAgent);
+            extractedIMEI = `${imeiUUID}-${imeiHash}`;
+
+            // Gọi API getLoginInfo để kích hoạt cookie và lấy thông tin
+            const ts = Date.now();
+            const url = `https://wpa.chat.zalo.me/api/login/getLoginInfo?imei=${extractedIMEI}&type=30&client_version=650&ts=${ts}`;
+            const resp = await fetch(url, {
+                headers: {
+                    'Accept': '*/*',
+                    'Referer': 'https://chat.zalo.me/',
+                    'User-Agent': userAgent,
+                },
+                credentials: 'include',
+            });
+            const data = await resp.json();
+            console.log('getLoginInfo response:', data);
+
+            // Đọc cookies từ trình duyệt
+            await new Promise(resolve => setTimeout(resolve, 500)); // Chờ cookie set
+
+            // Lấy tất cả cookie cho chat.zalo.me
+            const cookies = await getCookiesForDomain('chat.zalo.me');
+            sessionCookies = cookies;
+
+            // Tạo định dạng Python
+            extractedCookiesPython = formatCookiesPython(cookies, extractedIMEI);
+
+            // Tạo định dạng JS
+            extractedCookiesJS = formatCookiesJS(cookies, extractedIMEI);
+
+            console.log('IMEI:', extractedIMEI);
+            console.log('Cookies Python:', extractedCookiesPython);
+            console.log('Cookies JS:', extractedCookiesJS);
+        }
+
+        async function getCookiesForDomain(domain) {
+            // Sử dụng Cookie Store API nếu có
+            if (window.cookieStore && cookieStore.getAll) {
+                try {
+                    const allCookies = await cookieStore.getAll();
+                    return allCookies.filter(c => c.domain.includes('zalo.me') || c.domain.includes('chat.zalo.me'));
+                } catch (e) {
+                    console.warn('CookieStore API failed, fallback to document.cookie', e);
+                }
+            }
+            // Fallback: parse document.cookie
+            const cookies = [];
+            const cookieStr = document.cookie;
+            if (cookieStr) {
+                cookieStr.split(';').forEach(pair => {
+                    const [name, ...valueParts] = pair.trim().split('=');
+                    const value = valueParts.join('=');
+                    if (name && value) {
+                        cookies.push({ name: name.trim(), value: value.trim(), domain: domain });
+                    }
+                });
+            }
+            return cookies;
+        }
+
+        function formatCookiesPython(cookies, imei) {
+            // Định dạng dict cho Python requests
+            const cookieDict = {};
+            cookies.forEach(c => {
+                cookieDict[c.name] = c.value;
+            });
+            return JSON.stringify({
+                imei: imei,
+                cookies: cookieDict,
+                user_agent: userAgent,
+            }, null, 2);
+        }
+
+        function formatCookiesJS(cookies, imei) {
+            // Định dạng cho Chrome extension JS
+            const parsedCookies = cookies.map(c => {
+                if (c.name === 'zpw_sek') {
+                    return {
+                        domain: c.domain || '.chat.zalo.me',
+                        expirationDate: c.expirationDate || null,
+                        hostOnly: c.hostOnly || false,
+                        httpOnly: c.httpOnly || false,
+                        name: c.name,
+                        path: c.path || '/',
+                        sameSite: c.sameSite || 'no_restriction',
+                        secure: c.secure || false,
+                        session: c.session || false,
+                        storeId: c.storeId || '0',
+                        value: c.value,
+                    };
+                } else {
+                    return { name: c.name, value: c.value };
+                }
+            });
+            return JSON.stringify({
+                imei: imei,
+                url: 'https://chat.zalo.me',
+                cookies: parsedCookies,
+                user_agent: userAgent,
+            }, null, 2);
+        }
+
+        async function md5(message) {
+            const msgBuffer = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer); // Dùng SHA-256 thay MD5 vì browser ko hỗ trợ MD5 thuần
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // ==================== UPDATE DISPLAY ====================
+        function updateResultDisplay() {
+            if (currentFormat === 'python') {
+                resultBox.textContent = extractedCookiesPython || 'Chưa có dữ liệu Python.';
+            } else if (currentFormat === 'js') {
+                resultBox.textContent = extractedCookiesJS || 'Chưa có dữ liệu JS.';
+            } else if (currentFormat === 'imei') {
+                resultBox.textContent = extractedIMEI || 'Chưa có IMEI.';
+            }
+            sidebarFormat.textContent = currentFormat === 'python' ? 'Python' : (currentFormat === 'js' ? 'JS' : 'IMEI');
+        }
+
+        // ==================== COPY ====================
+        copyBtn.addEventListener('click', () => {
+            const text = resultBox.textContent;
+            if (text && text !== 'Chưa có dữ liệu.') {
+                navigator.clipboard.writeText(text).then(() => {
+                    copyBtn.textContent = '✅ Đã sao chép!';
+                    setTimeout(() => { copyBtn.textContent = '📋 Sao chép'; }, 2000);
+                }).catch(() => {
+                    alert('Không thể sao chép tự động. Vui lòng chọn và copy thủ công.');
+                });
+            }
+        });
+
+        // ==================== DOWNLOAD .TXT ====================
+        downloadBtn.addEventListener('click', () => {
+            let content = '';
+            let filename = 'zalo_';
+            if (currentFormat === 'python') {
+                content = extractedCookiesPython || '';
+                filename += 'cookie_python.txt';
+            } else if (currentFormat === 'js') {
+                content = extractedCookiesJS || '';
+                filename += 'cookie_js.txt';
+            } else {
+                content = extractedIMEI || '';
+                filename += 'imei.txt';
+            }
+            if (!content) {
+                alert('Chưa có dữ liệu để tải!');
+                return;
+            }
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        // ==================== START BUTTON ====================
+        startBtn.addEventListener('click', startQRLogin);
+
+        // ==================== INIT ====================
+        console.log('Zalo IMEI & Cookie Extractor v2.0 - Ready');
+        console.log('User Agent:', userAgent);
+    </script>
+</body>
+</html>
